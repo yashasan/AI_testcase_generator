@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Case Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f7f9fc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            align-items: center;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 700px;
+            width: 90%;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        label {
+            font-weight: bold;
+            margin-top: 10px;
+            display: block;
+            color: #444;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: #888;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .drop-zone:hover {
+            border-color: #007BFF;
+        }
+        .preview-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .preview-wrapper img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 20px;
+        }
+        button {
+            background: #007BFF;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f1f1f1;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        @media (max-width: 600px) {
+            .drop-zone {
+                min-height: 120px;
+                padding: 10px;
+            }
+        }
+        .copy-btn {
+    background: #28a745;
+    color: white;
+    padding: 6px 12px;
+    margin-top: 8px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    width: auto;
+    font-size: 14px;
+    display: inline-block;
+}
+.copy-btn:hover {
+    background: #218838;
+}
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Test Case Generator</h1>
+
+    <label for="action">Action:</label>
+    <input type="text" id="action" placeholder="Describe the action you will perform">
+
+    <label>Before Screenshot:</label>
+    <div class="drop-zone" id="before-drop">Click, drag & drop, or paste image here</div>
+    <input type="file" id="before-input" accept="image/*" style="display:none;">
+
+    <label>After Screenshot:</label>
+    <div class="drop-zone" id="after-drop">Click, drag & drop, or paste image here</div>
+    <input type="file" id="after-input" accept="image/*" style="display:none;">
+
+    <button id="generate">Generate Test Case With AI</button>
+
+    <pre id="result"></pre>
+</div>
+
+<script>
+    const beforeDrop = document.getElementById('before-drop');
+    const afterDrop = document.getElementById('after-drop');
+    const beforeInput = document.getElementById('before-input');
+    const afterInput = document.getElementById('after-input');
+    const resultEl = document.getElementById('result');
+    const generateBtn = document.getElementById('generate');
+    let lastClickedZone = null;
+
+    
+    function copyText(elementId) {
+    const textArea = document.getElementById(elementId);
+    textArea.select();
+    document.execCommand("copy"); // fallback for older browsers
+    navigator.clipboard.writeText(textArea.value);
+    alert("Copied to clipboard!");
+    }
+    function copyText(elementId) {
+    const textArea = document.getElementById(elementId);
+    textArea.select();
+    textArea.setSelectionRange(0, 99999); // for mobile
+    navigator.clipboard.writeText(textArea.value).then(() => {
+        alert("Copied to clipboard!");
+    });
+}
+
+
+    function handleFile(file, dropZone, inputEl) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            dropZone.innerHTML = '';
+            const wrapper = document.createElement('div');
+            wrapper.className = 'preview-wrapper';
+            const img = document.createElement('img');
+            img.src = reader.result;
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.textContent = 'X';
+            removeBtn.onclick = () => {
+                wrapper.remove();
+                dropZone.textContent = 'Click, drag & drop, or paste image here';
+                inputEl.value = '';
+            };
+            wrapper.appendChild(img);
+            wrapper.appendChild(removeBtn);
+            dropZone.appendChild(wrapper);
+        };
+        reader.readAsDataURL(file);
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        inputEl.files = dt.files;
+    }
+
+    function setupZone(dropZone, inputEl, zoneName) {
+        dropZone.addEventListener('click', () => {
+            lastClickedZone = zoneName;
+            inputEl.click();
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#007BFF';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#ccc';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ccc';
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0], dropZone, inputEl);
+            }
+        });
+
+        inputEl.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0], dropZone, inputEl);
+            }
+        });
+    }
+
+    // Paste support
+    document.addEventListener('paste', (event) => {
+        const items = event.clipboardData.items;
+        for (let item of items) {
+            if (item.type.startsWith('image/')) {
+                const blob = item.getAsFile();
+                if (lastClickedZone === 'after') {
+                    handleFile(blob, afterDrop, afterInput);
+                } else {
+                    handleFile(blob, beforeDrop, beforeInput);
+                }
+            }
+        }
+    });
+
+    setupZone(beforeDrop, beforeInput, 'before');
+    setupZone(afterDrop, afterInput, 'after');
+
+    document.getElementById('generate').addEventListener('click', async () => {
+    const action = document.getElementById('action').value;
+    if (!action || !beforeInput.files.length || !afterInput.files.length) {
+        alert('Please fill action and both screenshots.');
+        return;
+        
+    }
+    generateBtn.disabled = true;
+    generateBtn.textContent = "⏳ Generating...";
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('before', beforeInput.files[0]);
+    formData.append('after', afterInput.files[0]);
+
+    try {
+        const res = await fetch("http://localhost:3000/generate", {
+            method: "POST",
+            body: formData
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            resultEl.innerHTML = `<span style="color:red;">Error: ${errorData.error || 'Something went wrong'}</span>`;
+            return;
+        }
+
+        const data = await res.json();
+        if (data.error) {
+    resultEl.innerHTML = `<span style="color:red;">Error: ${data.error}</span>`;
+} else {
+    resultEl.innerHTML =resultEl.innerHTML =resultEl.innerHTML = `
+    <div style="margin-bottom:20px;">
+        <strong>Action:</strong><br>
+        <textarea id="actionText" style="width:100%;height:50px;" readonly>${data.action}</textarea><br>
+        <button class="copy-btn" onclick="copyText('actionText')">📋 Copy Action</button>
+    </div>
+
+    <div>
+        <strong>Expected Result:</strong><br>
+        <textarea id="expectedText" style="width:100%;height:80px;" readonly>${data.expected}</textarea><br>
+        <button class="copy-btn" onclick="copyText('expectedText')">📋 Copy Expected</button>
+    </div>
+`;
+
+}
+
+    } catch (err) {
+        resultEl.innerHTML = `<span style="color:red;">Error: ${err.message}</span>`;
+    }
+    finally {
+        // ✅ Reset button here so it always works
+        generateBtn.disabled = false;
+        generateBtn.textContent = "Generate Test Case With AI";
+    }
+});
+
+
+</script>
+</body>
+</html>
